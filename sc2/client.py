@@ -61,6 +61,7 @@ class Client(Protocol):
         observed_player_id: int | None = None,
         portconfig: Portconfig | None = None,
         rgb_render_config: dict[str, Any] | None = None,
+        host_ip: str | None = None,
     ):
         ifopts = sc_pb.InterfaceOptions(
             raw=True,
@@ -106,6 +107,9 @@ class Client(Protocol):
         if name is not None:
             assert isinstance(name, str), f"name is of type {type(name)}"
             req.player_name = name
+
+        if host_ip is not None:
+            req.host_ip = host_ip
 
         result = await self._execute(join_game=req)
         self._game_result = None
