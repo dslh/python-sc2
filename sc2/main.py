@@ -211,11 +211,12 @@ async def _play_game(
     portconfig: Portconfig,
     game_time_limit: int | None = None,
     rgb_render_config: dict[str, Any] | None = None,
+    host_ip: str | None = None,
 ) -> Result:
     assert isinstance(realtime, bool), repr(realtime)
 
     player_id = await client.join_game(
-        player.name, player.race, portconfig=portconfig, rgb_render_config=rgb_render_config
+        player.name, player.race, portconfig=portconfig, rgb_render_config=rgb_render_config, host_ip=host_ip
     )
     logger.info(f"Player {player_id} - {player.name if player.name else str(player)}")
 
@@ -345,6 +346,7 @@ async def _host_game(
     random_seed: int | None = None,
     sc2_version: str | None = None,
     disable_fog: bool = False,
+    host_ip: str | None = None,
 ):
     assert players, "Can't create a game without players"
 
@@ -362,7 +364,7 @@ async def _host_game(
         if not isinstance(players[0], Human) and getattr(players[0].ai, "raw_affects_selection", None) is not None:
             client.raw_affects_selection = players[0].ai.raw_affects_selection
 
-        result = await _play_game(players[0], client, realtime, portconfig, game_time_limit, rgb_render_config)
+        result = await _play_game(players[0], client, realtime, portconfig, game_time_limit, rgb_render_config, host_ip)
         if client.save_replay_path is not None:
             await client.save_replay(client.save_replay_path)
         try:
@@ -423,6 +425,7 @@ async def _join_game(
     save_replay_as: str | None = None,
     game_time_limit: int | None = None,
     sc2_version: str | None = None,
+    host_ip: str | None = None,
 ):
     async with SC2Process(fullscreen=players[1].fullscreen, sc2_version=sc2_version) as server:
         await server.ping()
@@ -432,7 +435,7 @@ async def _join_game(
         if isinstance(players[1], Bot) and getattr(players[1].ai, "raw_affects_selection", None) is not None:
             client.raw_affects_selection = players[1].ai.raw_affects_selection
 
-        result = await _play_game(players[1], client, realtime, portconfig, game_time_limit)
+        result = await _play_game(players[1], client, realtime, portconfig, game_time_limit, host_ip=host_ip)
         if save_replay_as is not None:
             await client.save_replay(save_replay_as)
         try:
@@ -481,6 +484,7 @@ def run_game(
     random_seed: int | None = None,
     sc2_version: str | None = None,
     disable_fog: bool = False,
+    host_ip: str | None = None,
 ) -> Result | list[Result | None]:
     """
     Returns a single Result enum if the game was against the built-in computer.
@@ -502,6 +506,7 @@ def run_game(
                     random_seed=random_seed,
                     sc2_version=sc2_version,
                     disable_fog=disable_fog,
+                    host_ip=host_ip,
                 ),
                 _join_game(
                     players,
@@ -510,6 +515,7 @@ def run_game(
                     save_replay_as=save_replay_as,
                     game_time_limit=game_time_limit,
                     sc2_version=sc2_version,
+                    host_ip=host_ip,
                 ),
                 return_exceptions=True,
             )
@@ -530,6 +536,7 @@ def run_game(
                 random_seed=random_seed,
                 sc2_version=sc2_version,
                 disable_fog=disable_fog,
+                host_ip=host_ip,
             )
         )
         assert isinstance(result, Result)

@@ -88,6 +88,8 @@ class SC2Process:
             self._port = port
         self._used_portpicker = bool(port is None)
         self._tmp_dir = tempfile.mkdtemp(prefix="SC2_")
+        self._sc2_log_path = Path(self._tmp_dir) / "sc2_output.log"
+        self._sc2_log_file = None
         self._process: subprocess.Popen | None = None
         self._session = None
         self._ws = None
@@ -200,14 +202,18 @@ class SC2Process:
 
         sc2_cwd = str(Paths.CWD) if Paths.CWD else None
 
+        logger.info(f"Launching SC2: {' '.join(args)}")
+
         if paths.PF in {"WSL1", "WSL2"}:
             return wsl.run(args, sc2_cwd)
 
+        self._sc2_log_file = open(self._sc2_log_path, "w")
+        logger.info(f"SC2 output logging to: {self._sc2_log_path}")
         return subprocess.Popen(
             args,
             cwd=sc2_cwd,
-            # Suppress Wine error messages
-            stderr=subprocess.DEVNULL,
+            stdout=self._sc2_log_file,
+            stderr=self._sc2_log_file,
             # , env=run_config.env
         )
 
@@ -252,10 +258,13 @@ class SC2Process:
 
         if self._process is not None:
             assert isinstance(self._process, subprocess.Popen)
+            exit_code = self._process.poll()
+            if exit_code is not None:
+                logger.warning(f"SC2 process already exited with code {exit_code}")
             if paths.PF in {"WSL1", "WSL2"}:
                 if wsl.kill(self._process):
                     logger.error("KILLED")
-            elif self._process.poll() is None:
+            elif exit_code is None:
                 for _ in range(3):
                     self._process.terminate()
                     time.sleep(0.5)
@@ -271,8 +280,20 @@ class SC2Process:
                 with suppress(FileNotFoundError), subprocess.Popen(["wineserver", "-k"]) as p:
                     p.wait()
 
+        if self._sc2_log_file is not None:
+            self._sc2_log_file.close()
+            self._sc2_log_file = None
+
         if Path(self._tmp_dir).exists():
-            shutil.rmtree(self._tmp_dir)
+            tmp_contents = list(Path(self._tmp_dir).rglob("*"))
+            if tmp_contents:
+                logger.info(f"SC2 temp dir contents ({self._tmp_dir}):")
+                for p in tmp_contents:
+                    size = p.stat().st_size if p.is_file() else 0
+                    logger.info(f"  {p.relative_to(self._tmp_dir)} ({size} bytes)")
+            else:
+                logger.info(f"SC2 temp dir is empty: {self._tmp_dir}")
+            logger.info(f"SC2 output log: {self._sc2_log_path}")
 
         self._process = None
         self._ws = None

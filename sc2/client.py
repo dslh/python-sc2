@@ -111,6 +111,7 @@ class Client(Protocol):
         if host_ip is not None:
             req.host_ip = host_ip
 
+        logger.info(f"RequestJoinGame:\n{req}")
         result = await self._execute(join_game=req)
         self._game_result = None
         self._player_id = result.join_game.player_id
