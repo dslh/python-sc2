@@ -209,12 +209,13 @@ class SC2Process:
 
         self._sc2_log_file = open(self._sc2_log_path, "w")
         logger.info(f"SC2 output logging to: {self._sc2_log_path}")
+        proton_env = paths.get_proton_env()
         return subprocess.Popen(
             args,
             cwd=sc2_cwd,
             stdout=self._sc2_log_file,
             stderr=self._sc2_log_file,
-            # , env=run_config.env
+            env=proton_env,
         )
 
     async def _connect(self) -> ClientWebSocketResponse:

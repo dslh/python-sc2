@@ -18,6 +18,7 @@ BASEDIR = {
     "Darwin": "/Applications/StarCraft II",
     "Linux": "~/StarCraftII",
     "WineLinux": "~/.wine/drive_c/Program Files (x86)/StarCraft II",
+    "Proton": "~/.steam/steam/steamapps/common/StarCraft II",
 }
 
 USERPATH: dict[str, str | None] = {
@@ -27,6 +28,7 @@ USERPATH: dict[str, str | None] = {
     "Darwin": "Library/Application Support/Blizzard/StarCraft II/ExecuteInfo.txt",
     "Linux": None,
     "WineLinux": None,
+    "Proton": None,
 }
 
 BINPATH = {
@@ -36,6 +38,7 @@ BINPATH = {
     "Darwin": "SC2.app/Contents/MacOS/SC2",
     "Linux": "SC2_x64",
     "WineLinux": "SC2_x64.exe",
+    "Proton": "SC2_x64.exe",
 }
 
 CWD: dict[str, str | None] = {
@@ -45,6 +48,7 @@ CWD: dict[str, str | None] = {
     "Darwin": None,
     "Linux": None,
     "WineLinux": "Support64",
+    "Proton": "Support64",
 }
 
 
@@ -87,7 +91,17 @@ def get_env() -> None:
     return None
 
 
+# Proton launch configuration — populated by the caller (e.g. run.py --proton)
+# before Paths are resolved.
+#   proton_path: path to the "proton" script (e.g. .../Proton 10.0/proton)
+#   compat_data: path to the compatdata prefix (e.g. .../compatdata/418530)
+#   steam_path:  path to the Steam installation root
+proton_config: dict[str, str] = {}
+
+
 def get_runner_args(cwd):
+    if PF == "Proton" and proton_config:
+        return [proton_config["proton_path"], "run"]
     if "WINE" in os.environ:
         runner_file = Path(os.environ.get("WINE"))
         runner_file = runner_file if runner_file.is_file() else runner_file / "wine"
@@ -100,6 +114,16 @@ def get_runner_args(cwd):
         """
         return [runner_file, "start", "/d", cwd, "/unix"]
     return []
+
+
+def get_proton_env() -> dict[str, str] | None:
+    """Return extra environment variables needed for Proton launch, or None."""
+    if PF != "Proton" or not proton_config:
+        return None
+    env = os.environ.copy()
+    env["STEAM_COMPAT_DATA_PATH"] = proton_config["compat_data"]
+    env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = proton_config["steam_path"]
+    return env
 
 
 def latest_executeble(versions_dir, base_build=None):
